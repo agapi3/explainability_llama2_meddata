@@ -1,8 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
 
 import os
 import re
@@ -38,9 +33,6 @@ from langchain.llms import Ollama
 from langchain_ollama import OllamaLLM
 
 
-# In[ ]:
-
-
 #load dataset
 ds = load_dataset("Malikeh1375/medical-question-answering-datasets", "chatdoctor_healthcaremagic") 
 ds_healthcaremagic = ds["train"]
@@ -63,34 +55,30 @@ print(pd.DataFrame(ds_healthcaremagic).isna().sum())
 print("Total duplicates (before cleaning):", pd.DataFrame(ds_healthcaremagic).duplicated(subset=["instruction","input","output"]).sum())
 
 
-# In[ ]:
-
-
 #data preprocessing
-# ---------- 1. leaning function (safer) ----------
 def clean_text(text):
     if text is None:
         return ""
 
-    # ensure string&normalize unicode (keeps text stable across sources)
+    #ensure string&normalize unicode (keeps text stable across sources)
     text = unicodedata.normalize("NFKC", str(text))
 
-    # trim&lowercase
+    #trim&lowercase
     text = text.strip().lower()
 
-    # normalize fancy dashes to simple hyphen
+    #normalize fancy dashes to simple hyphen
     text = re.sub(r"[–—−]", "-", text)
 
     # IMPORTANT: prevent token concatenation on slashes
     # "leg/surgery" -> "leg surgery", "rattly/raspy" -> "rattly raspy"
     text = re.sub(r"\s*/\s*", " ", text)
 
-    # keep clinically meaningful punctuation and separators
-    # keep: . , ! ? ' - ( ) : ;
+    #keep clinically meaningful punctuation and separators
+    #keep: . , ! ? ' - ( ) : ;
     # (Keeping '-' avoids 5-7 -> 57)
     text = re.sub(r"[^\w\s\.\,\!\?\-\'\(\)\:\;]", " ", text)
 
-    # collapse whitespace
+    #collapse whitespace
     text = re.sub(r"\s+", " ", text).strip()
 
     return text
@@ -117,15 +105,15 @@ def is_low_info_output(output_text, min_words=25):
     t = output_text.strip().lower()
     words = t.split()
 
-    # very short answers are usually not useful as "ground truth"
+    #very short answers are usually not useful as "ground truth"
     if len(words) < min_words:
         return True
 
-    # obvious truncation marker in many scraped corpora
+    #obvious truncation marker in many scraped corpora
     if t.endswith("..."):
         return True
 
-    # boilerplate-only cases
+    
     boiler = ["dear friend", "welcome to chat doctor", "i am chat doctor"]
     if any(b in t for b in boiler) and len(words) < (min_words + 10):
         return True
@@ -135,7 +123,7 @@ def is_low_info_output(output_text, min_words=25):
 #clean and prettify dataset
 cleaned_pretty_healthcaremagic = []
 
-#toggle this depending on whether you want to filter stubs
+
 APPLY_STUB_FILTER = False
 
 dropped_empty = 0
@@ -150,7 +138,7 @@ for example in ds_healthcaremagic:
     cleaned_input = clean_text(input_text)
     cleaned_response = clean_text(response)
 
-    # skip empty fields
+    #skip empty fields
     if not cleaned_instruction or not cleaned_input or not cleaned_response:
         dropped_empty += 1
         continue
@@ -170,7 +158,7 @@ for example in ds_healthcaremagic:
         "output": pretty_response
     })
 
-#Remove duplicates
+#remove duplicates
 df = pd.DataFrame(cleaned_pretty_healthcaremagic)
 before = len(df)
 df = df.drop_duplicates(subset=["instruction", "input", "output"])
@@ -188,12 +176,6 @@ print("Duplicates removed:", before - after)
 print("NaN values per column (after cleaning):")
 print(df.isna().sum())
 print("Total duplicates (after cleaning):", df.duplicated(subset=["instruction","input","output"]).sum())
-
-
-# In[ ]:
-
-
-#run MODE_TO_RUN="BOTH"
 
 
 # ---------------------------
@@ -231,7 +213,7 @@ except Exception:
     pass
 
 
-# OPTIONAL
+#OPTIONAL
 SEED = 1234
 try:
     import random
@@ -246,7 +228,7 @@ except Exception:
 
 #CONFIG
 MODE_TO_RUN = "BOTH"        
-MAX_RETRIES = 1               # retries for CF generation
+MAX_RETRIES = 1               #retries for CF generation
 MAX_ITEMS = 100               
 
 CACHE_FLUSH_EVERY = 100
@@ -422,7 +404,7 @@ def call_with_timeout(fn, seconds: int, *args, **kwargs):
         signal.signal(signal.SIGALRM, old)
 
 
-# Bounded LRU cache
+#bounded LRU cache
 class LRUCache:
     def __init__(self, maxsize: int):
         self.maxsize = int(maxsize)
@@ -445,7 +427,7 @@ class LRUCache:
 
 
 
-# LLM (Ollama)
+#LLM (Ollama)
 def _build_llm() -> OllamaLLM:
     try:
         if OLLAMA_KEEP_ALIVE:
@@ -500,7 +482,7 @@ def _norm_phrase(s: str) -> str:
     s = re.sub(r"\s+", " ", s)
     return s
 
-#soft-match normalization (punctuation tolerant)
+#soft match normalization (punctuation tolerant)
 def _normalize_for_soft_match(s: str) -> str:
     s = (s or "").lower()
     s = re.sub(r"[^a-z0-9\s]+", " ", s)
@@ -532,7 +514,7 @@ def replace_phrase_in_text(text: str, phrase: str, replacement: str) -> Tuple[st
         new_text = re.sub(pat, replacement, text, count=1)
         return new_text, new_text != text
 
-    #fallback:soft-match replacement
+    #fallback:soft match replacement
     src = _normalize_for_soft_match(text)
     ph  = _normalize_for_soft_match(phrase)
     if not ph or ph not in src:
@@ -559,12 +541,12 @@ def ungrammatical_proxy(modified_input: str) -> bool:
         return True
     return False
 
-#Gentler sanitizer:remove trailing explanations only if pattern looks like "TERM definition"/keep slashes as-is (NOT forcing removal)/allow up to 6 words (less truncation)
+#sanitizer:remove trailing explanations only if pattern looks like "TERM definition"/keep slashes as-is (NOT forcing removal)/allow up to 6 words (less truncation)
 def sanitize_influential_term(term: str) -> str:
   
     t = (term or "").strip()
 
-    # strip definition-like tail
+    #strip definition-like tail
     for sep in [" - ", " – ", " — ", ": "]:
         if sep in t and len(t.split(sep, 1)[0].split()) <= 6:
             t = t.split(sep, 1)[0].strip()
@@ -579,7 +561,7 @@ def sanitize_influential_term(term: str) -> str:
 
 
 
-# TF-IDF global&cosine&weights
+#TF-IDF global&cosine&weights
 _TFIDF_VECTORIZER: Optional[TfidfVectorizer] = None
 _TFIDF_VEC_CACHE = LRUCache(maxsize=TFIDF_VEC_CACHE_MAX)
 
@@ -651,7 +633,7 @@ def tfidf_weights_for_terms(question_text: str, terms: List[str]) -> Tuple[Dict[
 
 
 
-# PROMPTS
+#PROMPTS
 #influentials must be EXACT substrings from QUESTION
 influential_prompt = PromptTemplate.from_template(r"""
 Return ONLY a valid Python list of exactly 2 strings. No extra text.
@@ -736,7 +718,6 @@ synonym_chain = LLMChain(llm=llm, prompt=synonym_prompt, output_key="synonym")
 antonym_chain = LLMChain(llm=llm, prompt=antonym_prompt, output_key="antonym")
 negation_chain = LLMChain(llm=llm, prompt=negation_prompt, output_key="negation")
 counterfactual_chain = LLMChain(llm=llm, prompt=counterfactual_body_prompt, output_key="counterfactual")
-
 
 
 
@@ -1082,7 +1063,7 @@ def process_sample(sample: Dict[str, str], mode: str = MODE_TO_RUN) -> Dict[str,
     #influentials
     terms_raw = list(_cached_influentials(orig_in))
 
-    # sanitize&keep only those that really occur in text
+    #sanitize&keep only those that really occur in text
     terms: List[str] = []
     for t in terms_raw:
         ts = sanitize_influential_term(t)
@@ -1601,13 +1582,6 @@ if __name__ == "__main__":
     print("\n\n" + "="*100)
     print("ERROR ANALYSIS SUMMARY (ONLINE)")
     print(json.dumps(results["meta"]["error_analysis"], indent=2))
-
-
-# In[ ]:
-
-
-#run MODE_TO_RUN="ANT"
-
 
 # ---------------------------
 # PRINT/LOG CONTROLS
@@ -1914,6 +1888,7 @@ def _norm_phrase(s: str) -> str:
     return s
 
 #soft-match normalization (punctuation tolerant)
+
 def _normalize_for_soft_match(s: str) -> str:
     s = (s or "").lower()
     s = re.sub(r"[^a-z0-9\s]+", " ", s)
@@ -1921,6 +1896,7 @@ def _normalize_for_soft_match(s: str) -> str:
     return s
 
 #tighter boundaries (avoid \w / underscore quirks)
+
 def _phrase_regex(phrase: str) -> str:
     toks = [re.escape(t) for t in (phrase or "").strip().split()]
     if not toks:
@@ -1929,6 +1905,7 @@ def _phrase_regex(phrase: str) -> str:
     return rf"(?i)(?<![A-Za-z0-9]){joined}(?![A-Za-z0-9])"
 
 #exact-regex OR soft-match fallback
+    
 def term_occurs_in_text(term: str, text: str) -> bool:
     if not term or not text:
         return False
@@ -1977,7 +1954,7 @@ def sanitize_influential_term(term: str) -> str:
   
     t = (term or "").strip()
 
-    # strip definition-like tail
+    #strip definition-like tail
     for sep in [" - ", " – ", " — ", ": "]:
         if sep in t and len(t.split(sep, 1)[0].split()) <= 6:
             t = t.split(sep, 1)[0].strip()
@@ -2064,7 +2041,7 @@ def tfidf_weights_for_terms(question_text: str, terms: List[str]) -> Tuple[Dict[
 
 
 
-# PROMPTS
+#PROMPTS
 #influentials must be EXACT substrings from QUESTION
 influential_prompt = PromptTemplate.from_template(r"""
 Return ONLY a valid Python list of exactly 2 strings. No extra text.
@@ -2488,6 +2465,7 @@ def nltk_preflight():
 
 
 #core: process one sample
+        
 def process_sample(sample: Dict[str, str], mode: str = MODE_TO_RUN) -> Dict[str, Any]:
     orig_in = str(sample.get("input", "") or "")
     orig_out = str(sample.get("output", "") or "")
@@ -2495,7 +2473,7 @@ def process_sample(sample: Dict[str, str], mode: str = MODE_TO_RUN) -> Dict[str,
     #influentials
     terms_raw = list(_cached_influentials(orig_in))
 
-    # sanitize&keep only those that really occur in text
+    #sanitize&keep only those that really occur in text
     terms: List[str] = []
     for t in terms_raw:
         ts = sanitize_influential_term(t)
@@ -3014,9 +2992,6 @@ if __name__ == "__main__":
     print("\n\n" + "="*100)
     print("ERROR ANALYSIS SUMMARY (ONLINE)")
     print(json.dumps(results["meta"]["error_analysis"], indent=2))
-
-
-# In[ ]:
 
 
 # SYN_ONLY
@@ -3839,6 +3814,7 @@ def nli_proxy_label_cached(premise: str, hypothesis: str) -> str:
 
 
 # LLM cached calls
+
 @lru_cache(maxsize=LLM_LRU_MAX)
 def _cached_influentials(question: str) -> Tuple[str, ...]:
     try:
@@ -4522,9 +4498,6 @@ if __name__ == "__main__":
     print(json.dumps(results["meta"]["error_analysis"], indent=2))
 
 
-# In[ ]:
-
-
 #ERROR ANALYSIS
 #Separates:
 #(1) Coverage (% CF_GENERATED)
@@ -5074,6 +5047,7 @@ if len(df_syn_sem) > 0:
 
 
 
+
 #FIGURES-weights&impact (STRICT only)
 #impact histograms per type
 plot_hist(df_sem[df_sem["type"].eq("syn")]["impact"],
@@ -5180,9 +5154,6 @@ with open(os.path.join(OUT_DIR, "final_metrics_summary_balanced_rich.pkl"), "wb"
 print(f"\n[INFO] Saved: {OUT_DIR}/final_metrics_summary_balanced_rich.pkl")
 print(f"[INFO] Figures saved in: {FIG_DIR}/")
 print(f"[INFO] Tables/CSVs saved in: {OUT_DIR}/")
-
-
-# In[ ]:
 
 
 #ERROR ANALYSIS (phase-aware) 
@@ -5399,12 +5370,12 @@ def detect_error_type(row) -> str:
         if (not semantic_present(term, advice)) and (not semantic_present(rep, advice)):
             return "missing_key_concept"
 
-    # D) hallucination-like escalation proxy
+    #hallucination-like escalation proxy
     for p in HALLUCINATION_PATTERNS:
         if re.search(p, advice):
             return "hallucination_like"
 
-    # E) oversimplification proxy (short generic advice)
+    #oversimplification proxy (short generic advice)
     for p in OVERSIMPLIFY_PATTERNS:
         if re.search(p, advice) and len(advice.split()) < 45:
             return "over_simplification"
@@ -5500,7 +5471,7 @@ plot_two_bars(pv_pipe, "Pipeline Failure Rate by Phase and Type", "Pipeline fail
 plot_two_bars(pv_strict, "Strict Validity Rate by Phase and Type (among covered only)", "Strict-valid (%)",
              "figure_strict_valid_rate_on_covered_by_phase_type.png")
 
-# --- Error types by strategy (syn vs ant) excluding "none"
+#Error types by strategy (syn vs ant) excluding "none"
 ct = pd.crosstab(df_cf["type"], df_cf["error_type"])
 ct_err = ct.drop(columns=["none"], errors="ignore")
 
@@ -5582,7 +5553,7 @@ plt.savefig(outpath, dpi=300, bbox_inches="tight")
 plt.show()
 print("[INFO] Saved:", outpath)
 
-# --- Weight vs error (STRICT ONLY) — syn
+#Weight vs error (STRICT ONLY) — syn
 df_syn = df_cf[(df_cf["type"] == "syn") & (df_cf["usable_strict"])].copy()
 if len(df_syn) > 0:
     mean_noerr = df_syn[df_syn["is_error"] == False]["weight"].mean()
@@ -5608,7 +5579,7 @@ if len(df_syn) > 0:
 else:
     print("[WARN] No SYN strict-valid rows for weight-vs-error plot.")
 
-# --- Weight vs error (STRICT ONLY) — ant
+#Weight vs error (STRICT ONLY) — ant
 df_ant = df_cf[(df_cf["type"] == "ant") & (df_cf["usable_strict"])].copy()
 if len(df_ant) > 0:
     mean_noerr = df_ant[df_ant["is_error"] == False]["weight"].mean()
@@ -5689,9 +5660,6 @@ with open(os.path.join(OUT_DIR, "final_statistics_errors_cache_driven.pkl"), "wb
 print(f"\n[INFO] Saved: {OUT_DIR}/final_statistics_errors_cache_driven.pkl")
 print(f"[INFO] Figures saved in: {FIG_DIR}/")
 print(f"[INFO] Tables/CSVs saved in: {OUT_DIR}/")
-
-
-# In[ ]:
 
 
 #METRICS&WEIGHT STATS
@@ -5880,10 +5848,6 @@ def pretty_print_metrics(results: dict):
 metrics_results = run_metrics_statistics(df_cf)
 pretty_print_metrics(metrics_results)
 
-
-# In[ ]:
-
-
 #FIGURES:METRICS (STRICT/ROBUST)
 #SYN_ONLY: syn_out, syn_in  (robust + strict)
 #ANT_ONLY: ant_out, ant_in  (robust + strict)
@@ -5972,7 +5936,7 @@ def line_chart_multi(title, series_dict, labels, out_png):
     plt.grid(axis="y", linestyle="--", alpha=0.4)
     plt.legend()
 
-    # annotate
+
     for name, vals in series_dict.items():
         for i, v in enumerate(vals):
             plt.text(i, min(0.98, v + 0.03), f"{v:.3f}", ha="center", fontsize=8)
@@ -6117,19 +6081,7 @@ for ph in ["SYN_ONLY", "ANT_ONLY", "BOTH"]:
 print(f"[INFO] Saved metrics figures to: {FIG_DIR}/")
 
 
-# In[ ]:
 
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
 
 
 
