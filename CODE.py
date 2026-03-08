@@ -15,7 +15,6 @@ import numpy as np
 import pandas as pd
 import torch
 import matplotlib.pyplot as plt
-import seaborn as sns
 from typing import Any, Dict, List, Tuple, Optional
 from functools import lru_cache
 from difflib import SequenceMatcher
@@ -25,8 +24,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity as sk_cosine_similarity
 from rouge_score import rouge_scorer
 from nltk.translate.meteor_score import meteor_score
-from rich.console import Console
-from rich.panel import Panel
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain.llms import Ollama
